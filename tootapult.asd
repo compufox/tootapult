@@ -6,7 +6,7 @@
   :license  "NPLv1+"
   :version "0.0.1"
   :serial t
-  :depends-on (#:tooter #:chirp #:dexador #:parser.ini)
+  :depends-on (#:chirp #:dexador #:cl-json #:str #:with-user-abort #:sanitize)
   :components ((:file "package")
                (:file "tootapult"))
   :build-operation "program-op"
