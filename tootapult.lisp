@@ -3,10 +3,14 @@
 (in-package #:tootapult)
 
 (defvar *max-tweet-length* 280)
-(defvar *mastodon-instance* "")
-(defvar *mastodon-account* nil)
-(defvar *mastodon-token* "")
-(defvar *id-mappings* nil)
+(defvar *mastodon-instance*)
+(defvar *mastodon-account*)
+(defvar *mastodon-token*)
+(defvar *id-mappings*)
+(defvar *filters*)
+(defvar *privacy-level* "public")
+(defvar *privacy-values* '("direct" "private" "unlisted" "public"))
+(defvar *crosspost-mentions*)
 
 (defun main ()
   "binary entry point"
@@ -30,7 +34,10 @@
 	  *oauth-api-key* (agetf config "twitter-consumer-key")
 	  *oauth-api-secret* (agetf config "twitter-consumer-secret")
 	  *oauth-access-token* (agetf config "twitter-access-token")
-	  *oauth-access-secret* (agetf config "twitter-token-secret"))))
+	  *oauth-access-secret* (agetf config "twitter-token-secret")
+
+	  *filters* (mapcar #'str:trim (split #\, (agetf config "filters")))
+	  *crosspost-mentions* (agetf config "crosspost-mentioned"))))
 
 (defun get-account ()
   "fetches the account that belongs to the token"
@@ -50,8 +57,12 @@
        while line
        when (and (not (starts-with-p "#" line)) (not (blankp line)))
        collect (cons
-	        (car input)
-		(cadr input)))))
+	        (str:trim (car input))
+		(let ((value (trim (cadr input))))
+		  (if (or (string= value "false")
+			  (string= value "nil"))
+		      nil
+		      value))))))
 	
 (defun agetf (place indicator &optional default)
   "getf but for alists"
@@ -107,23 +118,24 @@ data: json post object, status id, json notification object
 ;;  clean doesnt properly handle newlines, so thats gonna be something
 ;;  im probably going to have to do
 (defun post-to-twitter (status)
-  (let ((content (trim (clean (agetf status :content)))))
-    ;; this loop macro is bad and i feel bad writing it.
-    ;; should be split into PROPER lisp code lol
-
-    ;; should also add cw's please. do not forget
+  ;; this loop macro is bad and i feel bad writing it.
+  ;; should be split into PROPER lisp code lol
+    
+  (when (should-crosspost-p status)
+    
+      ;; should also add cw's please. do not forget
     (loop
        with tweet-length = 0
-       with tweet-words = (words content)
+       with tweet-words = (words (build-post status))
        with tweet = nil
        with last-id = nil
        with media-list = (get-post-media (agetf status :media-attachments))
-
+	 
        while tweet-words
        do
 	 (push (pop tweet-words) tweet)
 	 (setf tweet-length (chirp:compute-status-length (join #\Space tweet)))
-
+	 
        when (> tweet-length *max-tweet-length*)
        do
 	 (push (pop tweet) tweet-words)
@@ -132,10 +144,51 @@ data: json post object, status id, json notification object
 						:file media-list)
 				   'chirp::%id)
 	       media-list nil
-	       tweet nil)
-
+	       tweet nil
+	       *id-mappings* (append *id-mappings*
+				     (cons (agetf status :id)
+					   last-id)))
+				     
        finally
 	 (chirp:statuses/update (join #\Space (reverse tweet))))))
+
+(defun should-crosspost-p (status)
+  "checks if we should crosspost the status"
+  (let ((filtered (filter-present-p content))
+	(mentions (agetf status :mentions)))
+    (and (or *crosspost-mentions* (null mentions))
+	 (not filtered))))
+
+(defun filter-present-p (status-text)
+  "checks if any filter words appear in STATUS-TEXT"
+  (loop
+     for f in *filters*
+
+     when (containsp f status-text)
+     return t))
+
+(defun build-post (status)
+  "builds post from status for crossposting
+
+adds CW, if needed
+sanitizes html tags
+replaces mentions, if specified"
+  (let ((cw (agetf status :spoiler-text))
+	(mentions (agetf status :mentions))
+	(content (trim (clean (replace-all "</p><p>"
+					   (string #\Newline)
+					   (agetf status :content))))))
+    (labels ((replace-mentions (m)
+	       (let ((handle (concatenate 'string "@"
+					  (first
+					   (split #\@ (agetf m :acct))))))
+		 (replace-all handle (agetf m :url) content))))
+      
+    (concatenate 'string
+		 cw (when cw (format nil ":~&~&"))
+		 (if *crosspost-mentions*
+		     (mapcar #'replace-mention mentions)
+		     content)))))
 
 (defun get-post-media (media-list)
   "downloads all media in MEDIA-LIST"

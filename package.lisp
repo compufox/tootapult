@@ -15,6 +15,7 @@
 		:replace-all
 		:trim
 		:words
+		:containsp
 		:starts-with-p)
   (:import-from :uiop
 		:temporary-directory))
