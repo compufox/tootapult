@@ -2,38 +2,45 @@
 
 (in-package #:tootapult)
 
-(defconstant *max-tweet-length* 280)
-(defconstant *privacy-values* '("direct" "private" "unlisted" "public"))
-(defconstant *map-filename* "posts.map")
+(defvar *max-tweet-length* 280)
+(defvar *privacy-values* '("direct" "private" "unlisted" "public"))
+(defvar *map-filename* "posts.map")
 
 (defvar *mastodon-instance*)
 (defvar *mastodon-account-id*)
 (defvar *mastodon-token*)
-(defvar *id-mappings*)
-(defvar *filters*)
 (defvar *privacy-level*)
 (defvar *crosspost-mentions*)
 
+;; these need 'nil' because otherwise they cant be evaluated, period
+(defvar *id-mappings* nil)
+(defvar *filters* nil)
+
 (defun main ()
   "binary entry point"
-  (load-config)
-  (import-id-map)
-  
-  (handler-case
-      (with-user-abort (start-crossposter))
-    (user-abort ()
-      (format t "shutting down~%")
-      (uiop:quit))
-    (error (e)
-      (format t "encountered error ~a~%" e)
-      (uiop:quit 1)))
+  (let ((exit-status 0))
+    (handler-case
+	(with-user-abort
+	  (load-config)
+	  (import-id-map)
+	  (start-crossposter))
+      (user-abort ()
+	(format t "shutting down~%"))
+      (error (e)
+	(format t "encountered error: ~a~%" e)
+	(setf exit-status 1)))
 
-  (export-id-map))
+    (when *id-mappings*
+      (export-id-map))
+    
+    (uiop:quit exit-status)))
 
 (defun load-config ()
   "loads our config file and sets our variables accordingly"
   (let ((config (parse-file (or (first (uiop:command-line-arguments))
 				"tootapult.config"))))
+    (unless config
+      (error "no config file found."))
     (setf *mastodon-instance* (agetf config "mastodon-url")
 	  *mastodon-token* (agetf config "mastodon-token")
 	  *mastodon-account-id* (get-mastodon-account-id)
@@ -61,19 +68,21 @@
 
 (defun parse-file (file)
   "parses FILE, returning an alist"
-  (with-open-file (conf file)
-    (loop
-       for line = (read-line conf nil)
-       for input = (split #\= line)
-       while line
-       when (and (not (starts-with-p "#" line)) (not (blankp line)))
-       collect (cons
-	        (str:trim (car input))
-		(let ((value (trim (cadr input))))
-		  (if (or (string= value "false")
-			  (string= value "nil"))
-		      nil
-		      value))))))
+  (with-open-file (conf file
+			:if-does-not-exist nil)
+    (when conf 
+      (loop
+	 for line = (read-line conf nil)
+	 for input = (split #\= line)
+	 while line
+	 when (and (not (starts-with-p "#" line)) (not (blankp line)))
+	 collect (cons
+		  (str:trim (car input))
+		  (let ((value (trim (cadr input))))
+		    (if (or (string= value "false")
+			    (string= value "nil"))
+			nil
+			value)))))))
 	
 (defun agetf (place indicator &optional default)
   "getf but for alists"
