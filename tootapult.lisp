@@ -97,12 +97,15 @@
   (loop
      with masto-stream = (dex:get (format nil "https://~a/api/v1/streaming/user"
 					  (replace-all "https://" "" *mastodon-instance*))
+				  :headers `(("Authorization" . ,(concatenate 'string "Bearer " *mastodon-token*)))
 				  :keep-alive t
 				  :want-stream t)
 
      while masto-stream
      do (let* ((line (read-line masto-stream))
-	       (type (subseq line 7)))
+	       (type (or (blankp line)
+			 (starts-with-p ":" line)
+			 (subseq line 7))))
 	  (when (starts-with-p "event:" line)
 	    (dispatch type (subseq (read-line masto-stream) 6))))))
 
@@ -124,9 +127,8 @@ data: json post object, status id, json notification object
       ((and (string= event-type "update")
 	    (equal (agetf (agetf parsed-data :account) :id) *mastodon-account-id*)
 	    (null (agetf parsed-data :reblog))
-	    (self-reply-p status)
-	    (should-crosspost-p status))
-       (post-to-twitter (decode-json-from-string data)))
+	    (should-crosspost-p parsed-data))
+       (post-to-twitter parsed-data))
 
       ;; if its a delete event, and we have the id stored somewhere
       ;;  delete it
@@ -146,18 +148,19 @@ data: json post object, status id, json notification object
      with tweet-length = 0
      with tweet-words = (words (build-post status))
      with tweet = nil
-     with last-id = (cdr (find (agetf status :id) *id-mappings* :key #'car :from-end t))
+     with last-id = (cdr (find (agetf status :id) *id-mappings*
+			       :test #'equal :key #'car :from-end t))
      with media-list = (get-post-media (agetf status :media-attachments))
        
      while tweet-words
      do
        (push (pop tweet-words) tweet)
-       (setf tweet-length (chirp:compute-status-length (join #\Space tweet)))
+       (setf tweet-length (chirp:compute-status-length (join " " tweet)))
        
      when (> tweet-length *max-tweet-length*)
      do
        (push (pop tweet) tweet-words)
-       (setf last-id (slot-value (chirp:tweet (join #\Space (reverse tweet))
+       (setf last-id (slot-value (chirp:tweet (join " " (reverse tweet))
 					      :reply-to last-id
 					      :file media-list)
 				 'chirp::%id)
@@ -169,28 +172,30 @@ data: json post object, status id, json notification object
        
      finally
        (when tweet
-	 (chirp:tweet (join #\Space (reverse tweet))
+	 (chirp:tweet (join " " (reverse tweet))
 		      :reply-to last-id
 		      :file media-list))))
 
 (defun self-reply-p (status)
   "checks if STATUS is a self-reply"
-  (let ((is-reply (agetf status :in-reply-to-id)))
+  (let ((is-reply (agetf status :in--reply--to--id)))
     (cond
-      ((and is-reply
-	    (equal (agetf status :in-reply-to-account-id) *mastodon-account-id*))
+      ((and is-reply (equal (agetf status :in--reply--to--account--id)
+			    *mastodon-account-id*))
        t)
-      ((not is-reply)
-       t)
+      ((not is-reply) t)
       (t nil))))
 
 (defun should-crosspost-p (status)
   "checks if we should crosspost the status"
-  (let ((filtered (filter-present-p content))
-	(mentions (agetf status :mentions)))
+  (let ((filtered (filter-present-p (agetf status :content)))
+	(mentions (agetf status :mentions))
+	(is-reply (agetf status :in--reply--to--id)))
     (and (member (agetf status :visibility) *privacy-level* :test #'string=)
 	 (or *crosspost-mentions* (null mentions))
-	 (not filtered))))
+	 (not filtered)
+	 (or (not is-reply)
+	     (self-reply-p status)))))
 
 (defun filter-present-p (status-text)
   "checks if any filter words appear in STATUS-TEXT"
@@ -206,22 +211,22 @@ data: json post object, status id, json notification object
 adds CW, if needed
 sanitizes html tags
 replaces mentions, if specified"
-  (let ((cw (agetf status :spoiler-text))
+  (let ((cw (agetf status :spoiler--text))
 	(mentions (agetf status :mentions))
-	(content (trim (clean (replace-all "</p><p>"
-					   (string #\Newline)
-					   (agetf status :content))))))
+	(content (clean (replace-all "</p><p>"
+				     (string #\Newline)
+				     (agetf status :content)))))
     (labels ((replace-mentions (m)
 	       (let ((handle (concatenate 'string "@"
 					  (first
 					   (split #\@ (agetf m :acct))))))
 		 (replace-all handle (agetf m :url) content))))
-      
-    (concatenate 'string
-		 (when cw (format nil "cw: ~A~&~&" cw))
-		 (if *crosspost-mentions*
-		     (mapcar #'replace-mention mentions)
-		     content)))))
+
+      (concatenate 'string
+		   (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
+		   (if *crosspost-mentions*
+		       (mapcar #'replace-mentions mentions)
+		       content)))))
 
 (defun get-post-media (media-list)
   "downloads all media in MEDIA-LIST"
@@ -262,8 +267,10 @@ returns the filename"
 		      :direction :input
 		      :if-does-not-exist nil)
     (when in
-      (setf *id-mappings*
-	    (read-from-string (read-line in nil nil))))))
+      (let ((map-string (read-line in nil nil)))
+	(unless (blankp map-string)
+	  (setf *id-mappings*
+		(read-from-string map-string)))))))
 
 (defun export-id-map ()
   "saves our mappings for later"

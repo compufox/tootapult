@@ -14,7 +14,10 @@
   (:import-from :str
 		:replace-all
 		:trim
+		:join
 		:words
+		:split
+		:blankp
 		:containsp
 		:starts-with-p)
   (:import-from :uiop
