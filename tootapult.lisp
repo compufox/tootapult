@@ -37,22 +37,20 @@
 
 (defun load-config ()
   "loads our config file and sets our variables accordingly"
-  (let ((config (parse-file (or (first (uiop:command-line-arguments))
-				"tootapult.config"))))
-    (unless config
-      (error "no config file found."))
-    (setf *mastodon-instance* (agetf config "mastodon-url")
-	  *mastodon-token* (agetf config "mastodon-token")
+  (when (conf:load-config (or (first (uiop:command-line-arguments))
+			      "tootapult.config"))
+    (setf *mastodon-instance* (conf:config :mastodon-url)
+	  *mastodon-token* (conf:config :mastodon-token)
 	  *mastodon-account-id* (get-mastodon-account-id)
-	  *oauth-api-key* (agetf config "twitter-consumer-key")
-	  *oauth-api-secret* (agetf config "twitter-consumer-secret")
-	  *oauth-access-token* (agetf config "twitter-access-token")
-	  *oauth-access-secret* (agetf config "twitter-token-secret")
+	  *oauth-api-key* (conf:config :twitter-consumer-key)
+	  *oauth-api-secret* (conf:config :twitter-consumer-secret)
+	  *oauth-access-token* (conf:config :twitter-access-token)
+	  *oauth-access-secret* (conf:config :twitter-token-secret)
 
-	  *privacy-level* (member (agetf config "privacy-level" '("public")) *privacy-values*
+	  *privacy-level* (member (conf:config :privacy-level '("public")) *privacy-values*
 				  :test #'string=)
-	  *filters* (mapcar #'str:trim (split #\, (agetf config "filters")))
-	  *crosspost-mentions* (agetf config "crosspost-mentioned"))))
+	  *filters* (mapcar #'str:trim (conf:config :filters))
+	  *crosspost-mentions* (conf:config :crosspost-mentioned))))
 
 (defun get-mastodon-account-id ()
   "fetches the account that belongs to the token"
@@ -64,25 +62,9 @@
 								   "Bearer "
 								   *mastodon-token*)))))
 	     :id)
-    (error (e) (error "incorrect mastodon token"))))
-
-(defun parse-file (file)
-  "parses FILE, returning an alist"
-  (with-open-file (conf file
-			:if-does-not-exist nil)
-    (when conf 
-      (loop
-	 for line = (read-line conf nil)
-	 for input = (split #\= line)
-	 while line
-	 when (and (not (starts-with-p "#" line)) (not (blankp line)))
-	 collect (cons
-		  (str:trim (car input))
-		  (let ((value (trim (cadr input))))
-		    (if (or (string= value "false")
-			    (string= value "nil"))
-			nil
-			value)))))))
+    (dex:http-request-unauthorized (e) (error "incorrect mastodon token"))
+    (dex:http-request-forbidden (e) (error "account unavailable"))
+    (error (e) (error "unexpected error occurred"))))
 	
 (defun agetf (place indicator &optional default)
   "getf but for alists"
