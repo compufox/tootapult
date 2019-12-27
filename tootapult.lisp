@@ -128,7 +128,8 @@ data: json post object, status id, json notification object
   ;; should be split into PROPER lisp code lol
   (loop
      with tweet-length = 0
-     with tweet-words = (words (build-post status))
+
+     with tweet-words = (get-words (build-post status))
      with tweet = nil
      with last-id = (cdr (find (agetf status :id) *id-mappings*
 			       :test #'equal :key #'car :from-end t))
@@ -154,9 +155,31 @@ data: json post object, status id, json notification object
        
      finally
        (when tweet
-	 (chirp:tweet (join " " (reverse tweet))
-		      :reply-to last-id
-		      :file media-list))))
+	 (setf *id-mappings*
+	       (append *id-mappings*
+		       (cons (agetf status :id)
+			     (slot-value (chirp:tweet (join " " (reverse tweet))
+						      :reply-to last-id
+						      :file media-list)
+					 'chirp::%id)))))))
+
+(defun get-words (text)
+  "properly splits a toot up into words, preserving newlines"
+  (reverse
+    (loop
+       with words = ()
+       with cur-start = 0
+				   
+       if (< cur-start (length text))
+       do
+	 (let ((s (search " " text :test #'string= :start2 cur-start)))
+	   (setf cur-start
+		 (if s
+		     (prog1 (1+ s)
+		       (push (str:substring cur-start s text) words))
+		     (length text))))
+       else
+       return words)))
 
 (defun self-reply-p (status)
   "checks if STATUS is a self-reply"
