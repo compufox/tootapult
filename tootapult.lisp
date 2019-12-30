@@ -158,7 +158,7 @@ data: json post object, status id, json notification object
 
      with tweet-words = (get-words (build-post status))
      with tweet = nil
-     with last-id = (cdr (find (agetf status :id) *id-mappings*
+     with last-id = (cdr (find (agetf status :in--reply--to--id nil) *id-mappings*
 			       :test #'equal :key #'car :from-end t))
      with media-list = (get-post-media (agetf status :media-attachments))
        
@@ -297,10 +297,8 @@ returns the filename"
 		      :direction :input
 		      :if-does-not-exist nil)
     (when in
-      (let ((map-string (read-line in nil nil)))
-	(unless (blankp map-string)
-	  (setf *id-mappings*
-		(read-from-string map-string)))))))
+      (let ((map (read in nil nil)))
+	(setf *id-mappings* map)))))
 
 (defun export-id-map ()
   "saves our mappings for later"
