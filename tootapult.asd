@@ -10,6 +10,7 @@
 	       #:str #:with-user-abort #:plump
 	       #:simple-config #:websocket-driver)
   :components ((:file "package")
+	       (:file "util")
                (:file "tootapult"))
   :build-operation "program-op"
   :build-pathname "bin/tootapult"
