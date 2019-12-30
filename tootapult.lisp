@@ -11,6 +11,7 @@
 (defvar *mastodon-token*)
 (defvar *privacy-level*)
 (defvar *crosspost-mentions*)
+(defvar *websocket-client*)
 
 ;; these need 'nil' because otherwise they cant be evaluated, period
 (defvar *id-mappings* nil)
@@ -23,7 +24,8 @@
 	(with-user-abort
 	  (load-config)
 	  (import-id-map)
-	  (start-crossposter))
+	  (start-crossposter)
+	  (loop while (eql (ready-state *websocket-client*) :open) do (sleep 2)))
       (user-abort ()
 	(format t "shutting down~%"))
       (error (e)
@@ -65,6 +67,17 @@
     (dex:http-request-unauthorized (e) (error "incorrect mastodon token"))
     (dex:http-request-forbidden (e) (error "account unavailable"))
     (error (e) (error "unexpected error occurred"))))
+
+(defun get-mastodon-streaming-url ()
+  "gets the websocket url for the mastodon instance"
+  (handler-case
+      (agetf
+       (agetf (decode-json-from-string
+	       (dex:get (format nil "https://~a/api/v1/instance"
+				(replace-all "https://" "" *mastodon-instance*))))
+	      :urls)
+       :streaming--api)
+    (error (e) (error "unexpected error occurred"))))
 	
 (defun agetf (place indicator &optional default)
   "getf but for alists"
@@ -76,20 +89,34 @@
   (unless (chirp:account/verify-credentials)
     (error "incorrect twitter credentials"))
 
-  (loop
-     with masto-stream = (dex:get (format nil "https://~a/api/v1/streaming/user"
-					  (replace-all "https://" "" *mastodon-instance*))
-				  :headers `(("Authorization" . ,(concatenate 'string "Bearer " *mastodon-token*)))
-				  :keep-alive t
-				  :want-stream t)
+  (setf *websocket-client*
+	(make-client (format nil "~a/api/v1/streaming?access_token=~a&stream=user"
+			     (get-mastodon-streaming-url)
+			     *mastodon-token*)))
 
-     while masto-stream
-     do (let* ((line (read-line masto-stream))
-	       (type (or (blankp line)
-			 (starts-with-p ":" line)
-			 (subseq line 7))))
-	  (when (starts-with-p "event:" line)
-	    (dispatch type (subseq (read-line masto-stream) 6))))))
+    (wsd:on :open *websocket-client*
+	    #'print-open)
+    (wsd:on :message *websocket-client*
+	    #'process-message)
+    (wsd:on :close *websocket-client*
+	    #'print-close)
+
+    (wsd:start-connection *websocket-client*))
+
+(defun process-message (message)
+  "processes our incoming websocket message"
+  (let ((parsed (decode-json-from-string message)))
+    (dispatch (agetf parsed :event) (agetf parsed :payload))))
+
+(defun print-open ()
+  "prints a message when the websocket connection opens"
+  (format t "websocket connection open~%"))
+
+(defun print-close (&key code reason)
+  "prints a message when the websocket closes, printing the reason and code"
+  (when (and code reason)
+    (format t "websocket closed because '~a' (code=~a)~%" reason code)))
+
 
 #|
 
@@ -115,10 +142,10 @@ data: json post object, status id, json notification object
       ;; if its a delete event, and we have the id stored somewhere
       ;;  delete it
       ((and (string= event-type "delete")
-	    (member parsed-data *id-mappings* :key #'car :test #'=))
-       (delete-post parsed-data))
+	    (member data *id-mappings* :key #'car :test #'equal))
+       (delete-post data))
 
-      ;; if we dont know what the event is, ignore it :3c
+      ;; if we dont know what the event is, ignore it :3
       (t nil))))
 
 ;;  clean doesnt properly handle newlines, so thats gonna be something
@@ -150,18 +177,16 @@ data: json post object, status id, json notification object
 	     media-list nil
 	     tweet nil
 	     *id-mappings* (append *id-mappings*
-				   (cons (agetf status :id)
-					 last-id)))
+				   `((,(agetf status :id) . ,last-id))))
        
      finally
        (when tweet
 	 (setf *id-mappings*
 	       (append *id-mappings*
-		       (cons (agetf status :id)
-			     (slot-value (chirp:tweet (join " " (reverse tweet))
-						      :reply-to last-id
-						      :file media-list)
-					 'chirp::%id)))))))
+		       `((,(agetf status :id) . ,(slot-value (chirp:tweet (join " " (reverse tweet))
+									  :reply-to last-id
+									  :file media-list)
+							     'chirp::%id))))))))
 
 (defun get-words (text)
   "properly splits a toot up into words, preserving newlines"
@@ -257,14 +282,14 @@ returns the filename"
   (let ((tweet-ids (loop
 		      for (key . value) in *id-mappings*
 
-		      when (= key id)
+		      when (equal key id)
 		      collect value)))
     
     ;; delete all of them from twitter
     (mapcar #'chirp:statuses/destroy tweet-ids)
 
     ;; and them remove them from our mappings
-    (setf *id-mappings* (remove id *id-mappings* :test #'= :key #'car))))
+    (setf *id-mappings* (remove id *id-mappings* :test #'equal :key #'car))))
 
 (defun import-id-map ()
   "reads the mappings and sets *ID-MAPPINGS*"

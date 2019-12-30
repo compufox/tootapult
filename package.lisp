@@ -20,5 +20,8 @@
 		:blankp
 		:containsp
 		:starts-with-p)
+  (:import-from :websocket-driver
+		:make-client
+		:ready-state)
   (:import-from :uiop
 		:temporary-directory))
