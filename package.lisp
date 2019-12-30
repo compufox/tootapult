@@ -4,8 +4,6 @@
   (:use #:cl #:with-user-abort)
   (:import-from :json
 		:decode-json-from-string)
-  (:import-from :sanitize
-		:clean)
   (:import-from :chirp
 		:*oauth-api-key*
 		:*oauth-api-secret*

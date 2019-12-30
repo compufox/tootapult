@@ -235,6 +235,20 @@ data: json post object, status id, json notification object
      when (containsp f status-text)
      return t))
 
+(defun sanitize-content (post)
+  "removes all html tags from POST
+
+returns a list of each newline-separated paragraph"
+  (remove-if #'blankp
+	     (flatten
+	      (loop
+		 with content
+		 for c across (plump:children (plump:parse post))
+		 do (push (loop for c1 across (plump:children c)
+			     collect (plump:text c1))
+			  content)
+		 finally (return (reverse content))))))
+
 (defun build-post (status)
   "builds post from status for crossposting
 
@@ -243,9 +257,7 @@ sanitizes html tags
 replaces mentions, if specified"
   (let ((cw (agetf status :spoiler--text))
 	(mentions (agetf status :mentions))
-	(content (clean (replace-all "</p><p>"
-				     (string #\Newline)
-				     (agetf status :content)))))
+	(content (format nil "~{~A~^~%~}" (sanitize-content (agetf status :content)))))
     (labels ((replace-mentions (m)
 	       (let ((handle (concatenate 'string "@"
 					  (first
@@ -307,3 +319,13 @@ returns the filename"
 		       :if-exists :overwrite
 		       :if-does-not-exist :create)
     (write-string (format nil "~s" *id-mappings*) out)))
+
+(defun flatten (lst)
+  "flattens a list"
+  (labels ((rflatten (lst1 acc)
+	     (dolist (el lst1)
+	       (if (listp el)
+		   (setf acc (rflatten el acc))
+		   (push el acc)))
+	     acc))
+    (reverse (rflatten lst nil))))
