@@ -113,7 +113,7 @@ data: json post object, status id, json notification object
      with tweet = nil
      with last-id = (cdr (find (agetf status :in--reply--to--id nil) *id-mappings*
 			       :test #'equal :key #'car :from-end t))
-     with media-list = (get-post-media (agetf status :media-attachments))
+     with media-list = (get-post-media (agetf status :media--attachments))
        
      while tweet-words
      do
