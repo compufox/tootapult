@@ -8,7 +8,8 @@
   :serial t
   :depends-on (#:chirp #:dexador #:cl-json
 	       #:str #:with-user-abort #:plump
-	       #:simple-config #:websocket-driver)
+	       #:simple-config #:websocket-driver
+	       #:html-entities)
   :components ((:file "package")
 	       (:file "util")
                (:file "tootapult"))

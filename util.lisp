@@ -102,9 +102,10 @@ returns a list of each newline-separated paragraph"
 	     (flatten
 	      (loop
 		 with content
-		 for c across (plump:children (plump:parse post))
-		 do (push (loop for c1 across (plump:children c)
-			     collect (plump:text c1))
+		 for c across (plump:children (plump:parse (html-entities:decode-entities post)))
+		 do (push (loop
+			   for c1 across (plump:children c)
+			   collect (plump:text c1))
 			  content)
 		 finally (return (reverse content))))))
 
@@ -134,3 +135,20 @@ returns a list of each newline-separated paragraph"
 		   (push el acc)))
 	     acc))
     (reverse (rflatten lst nil))))
+
+(defun gather-tweet-ids (toot-id)
+  "gets all tweet ids that map to TOOT-ID from *ID-MAPPINGS*"
+  (loop
+   for (key . value) in *id-mappings*
+		      
+   when (equal key toot-id)
+   collect value))
+
+(defun replace-all-mentions (mentions content)
+  "replaces all @mentions in CONTENT with URL to account"
+  (let ((fixed-content content))
+    (dolist (mtn mentions fixed-content)
+      (setf fixed-content
+	    (replace-all (concatenate 'string "@" (first (split #\@ (agetf mtn :acct))))
+			 (agetf mtn :url)
+			 fixed-content)))))

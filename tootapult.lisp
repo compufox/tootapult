@@ -84,13 +84,21 @@ data: json post object, status id, json notification object
     (cond
       ;; if its a new status
       ;;    the posting account is ours
-      ;;    and its not a reblog
+      ;;    and the post doesnt contain any of our filtered words
       ;;  crosspost it
       ((and (string= event-type "update")
 	    (equal (agetf (agetf parsed-data :account) :id) *mastodon-account-id*)
-	    (null (agetf parsed-data :reblog))
 	    (should-crosspost-p parsed-data))
-       (post-to-twitter parsed-data))
+
+       ;; if the post doesnt have a reblog
+       ;;   crosspost the status
+       ;; otherwise
+       ;;   see if we have any stored posts with the reblog's id
+       ;;   and retweet the corresponding tweets
+       (if (null (agetf parsed-data :reblog))
+	   (post-to-twitter parsed-data)
+	   (mapcar #'chirp:statuses/retweet (gather-tweet-ids
+					     (agetf (agetf parsed-data :reblog) :id)))))
 
       ;; if its a delete event, and we have the id stored somewhere
       ;;  delete it
@@ -150,44 +158,39 @@ replaces mentions, if specified"
   (let ((cw (agetf status :spoiler--text))
 	(mentions (agetf status :mentions))
 	(content (format nil "~{~A~^~%~}" (sanitize-content (agetf status :content)))))
-    (labels ((replace-mentions (m)
-	       (let ((handle (concatenate 'string "@"
-					  (first
-					   (split #\@ (agetf m :acct))))))
-		 (replace-all handle (agetf m :url) content))))
 
-      (concatenate 'string
-		   (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
-		   (if *crosspost-mentions*
-		       (mapcar #'replace-mentions mentions)
-		       content)))))
+    (concatenate 'string
+		 (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
+		 (if (and *crosspost-mentions*
+			  mentions)
+		     (replace-all-mentions mentions content)
+		     content))))
 
 (defun get-post-media (media-list)
   "downloads all media in MEDIA-LIST"
-  (mapcar (lambda (attachment)
-	    (download-media (agetf attachment :url)))
-	  media-list))
+  (remove-if #'null
+	     (mapcar (lambda (attachment)
+		       (download-media (agetf attachment :url)))
+		     media-list)))
 
 (defun download-media (url)
   "downloads URL to a generated filename.
 returns the filename"
   (let ((filename (merge-pathnames (concatenate 'string
 						(symbol-name (gensym "ATTACHMENT-"))
+						"."
 						(pathname-type url))
 				   (temporary-directory))))
     (handler-case
-	(dex:fetch url filename)
+	(prog2 
+	    (dex:fetch url filename)
+	    filename)
       (error ()
-	nil))
-    filename))
+	nil))))
 
 (defun delete-post (id)
   ;; get all of our mapped tweet ids
-  (let ((tweet-ids (loop
-		      for (key . value) in *id-mappings*
-
-		      when (equal key id)
-		      collect value)))
+  (let ((tweet-ids (gather-tweet-ids id)))
     
     ;; delete all of them from twitter
     (mapcar #'chirp:statuses/destroy tweet-ids)
