@@ -9,6 +9,24 @@ download binary from release page
 
 copy the example config file and edit it with your tokens.
 
+to get twitter tokens you'll need to go to https://dev.twitter.com and sign in/up and go through the process there to generate an app.
+
+(this will hopefully be fixed in a later version)
+
+to get your mastodon token you'll need to:
+- go to your instance
+- log in
+- open your settings
+- click 'development' in the sidebar
+- create a new application
+- enter anything for the name, and then check the box next to the read scope
+- scroll down and click create
+- click on the name of the newly created application
+- copy your access token
+- put it in your tootapult config!
+
+(this will hopefully be fixed in a later version)
+
 ## Usage
 
 `./tootapult`
