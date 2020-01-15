@@ -61,7 +61,9 @@
 		 (if s
 		     (prog1 (1+ s)
 		       (push (str:substring cur-start s text) words))
-		     (length text))))
+		     (prog1 (length text)
+		       (push (str:substring cur-start (length text) text)
+			     words)))))
        else
        return words)))
 
