@@ -63,12 +63,12 @@
 
 (defun print-open ()
   "prints a message when the websocket connection opens"
-  (format t "websocket connection open~%"))
+  (format t "connected!~%"))
 
 (defun print-close (&key code reason)
   "prints a message when the websocket closes, printing the reason and code"
   (when (and code reason)
-    (format t "websocket closed because '~a' (code=~a)~%" reason code)))
+    (format t "connection broken.~%reason: '~a' (code=~a)~%" reason code)))
 
 
 #|
