@@ -183,12 +183,14 @@ returns the filename"
 						"."
 						(pathname-type url))
 				   (temporary-directory))))
-    (handler-case
-	(prog2 
-	    (dex:fetch url filename)
-	    filename)
-      (error ()
-	nil))))
+    (if (string= (pathname-type url) "mp4")
+	(format t "we dont support crossposting videos yet! sorry ;w;~%")
+	(handler-case
+	    (prog2 
+		(dex:fetch url filename)
+		filename)
+	  (error ()
+	    nil)))))
 
 (defun delete-post (id)
   ;; get all of our mapped tweet ids
