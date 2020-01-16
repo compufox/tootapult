@@ -59,7 +59,9 @@
 (defun process-message (message)
   "processes our incoming websocket message"
   (let ((parsed (decode-json-from-string message)))
-    (dispatch (agetf parsed :event) (agetf parsed :payload))))
+    (handler-case (dispatch (agetf parsed :event) (agetf parsed :payload))
+      (error (e)
+	(format t "an error occurred: ~a" e)))))
 
 (defun print-open ()
   "prints a message when the websocket connection opens"
