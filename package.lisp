@@ -9,6 +9,9 @@
 		:*oauth-api-secret*
 		:*oauth-access-token*
 		:*oauth-access-secret*)
+  (:import-from :unix-opts
+		:define-opts
+		:get-opts)
   (:import-from :str
 		:replace-all
 		:trim

@@ -9,7 +9,7 @@
   :depends-on (#:chirp #:dexador #:cl-json
 	       #:str #:with-user-abort #:plump
 	       #:simple-config #:websocket-driver
-	       #:html-entities)
+	       #:html-entities #:unix-opts)
   :components ((:file "package")
 	       (:file "util")
                (:file "tootapult"))

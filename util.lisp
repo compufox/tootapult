@@ -1,9 +1,30 @@
 (in-package :tootapult)
 
+(define-opts
+  (:name :help
+   :description "print this help text"
+   :short #\h
+   :long "help")
+  (:name :version
+   :description "prints version"
+   :short #\v
+   :long "version")
+  (:name :config
+   :description "use CONFIG"
+   :short #\c
+   :long "config"
+   :arg-parser #'identity
+   :meta-var "CONFIG")
+  (:name :map
+   :description "write map to FILE"
+   :short #\m
+   :long "map"
+   :arg-parser #'identity
+   :meta-var "FILE"))
+
 (defun load-config ()
   "loads our config file and sets our variables accordingly"
-  (when (conf:load-config (or (first (uiop:command-line-arguments))
-			      "tootapult.config"))
+  (when (conf:load-config *config-file*)
     (setf *mastodon-instance* (conf:config :mastodon-url)
 	  *mastodon-token* (conf:config :mastodon-token)
 	  *mastodon-account-id* (get-mastodon-account-id)

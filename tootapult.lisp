@@ -7,8 +7,9 @@
 (defvar *crosspostable-file-types*
   '("jpg" "jpeg" "png" "gif")
   "filetypes that we can crosspost")
-(defvar *map-filename* "posts.map")
 
+(defvar *map-filename*)
+(defvar *config-file*)
 (defvar *mastodon-instance*)
 (defvar *mastodon-account-id*)
 (defvar *mastodon-token*)
@@ -23,16 +24,38 @@
 (defun main ()
   "binary entry point"
   (let ((exit-status 0))
+    (multiple-value-bind (opts args) (get-opts)
+      
+      (when (or (getf opts :help nil)
+		(every #'null opts args))
+	(unix-opts:describe
+	 :prefix "crossposts mastodon posts to twitter"
+	 :usage-of "tootapult")
+	(uiop:quit 0))
+      
+      (when (getf opts :version nil)
+	(format t "tootapult v~a"
+		(asdf:component-version (asdf:find-system :tootapult)))
+	(uiop:quit 0))
+      
+      (setf *config-file* (getf opts :config)
+	    *map-filename* (getf opts :map "posts.map")))
+
+    (unless *config-file*
+      (format t "ERROR: config file not supplied~%       view help for correct usage")
+      (uiop:quit 1))
+    
     (handler-case
 	(with-user-abort
 	  (load-config)
 	  (import-id-map)
 	  (start-crossposter)
-	  (loop while (eql (ready-state *websocket-client*) :open) do (sleep 2)))
+	  (loop while (eql (ready-state *websocket-client*) :open)
+	     do (sleep 2)))
       (user-abort ()
 	(format t "shutting down~%"))
       (error (e)
-	(format t "encountered error: ~a~%" e)
+	(format t "encountered error: ~a" e)
 	(setf exit-status 1)))
 
     (when *id-mappings*
