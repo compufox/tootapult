@@ -140,7 +140,7 @@ data: json post object, status id, json notification object
 					      :reply-to last-id
 					      :file media-list)
 				 'chirp::%id)
-	     media-list nil
+	     media-list (clean-downloads media-list)
 	     tweet nil
 	     *id-mappings* (append *id-mappings*
 				   `((,(agetf status :id) . ,last-id))))
@@ -194,6 +194,11 @@ returns the filename"
 	  (error ()
 	    nil))
 	(format t "we dont support crossposting videos yet! sorry ;w;~%"))))
+
+(defun clean-downloads (files)
+  "deletes all FILES we downloaded to crosspost"
+  (mapcar #'uiop:delete-file-if-exists files)
+  nil)
 
 (defun delete-post (id)
   "deletes tweets with matching toot ID
