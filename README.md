@@ -35,6 +35,25 @@ loads file from path pointed to in `CONFIG` and starts the crossposter
 
 for more information run `./tootapult --help`
 
+## Crossposting Logic
+
+A mastodon post will be crossposted if the following is true:
+- the post is from your account
+- the post is not a reply (unless its a self-reply)
+- the post does not contain any mentions (see example.config)
+- the post/content warning doesn't contain a 'filter' word (see example.config)
+
+Once those checks are made, the status is posted to twitter.
+
+If the mastodon post is too long for twitter (more than 280 characters) it gets split into individual posts and threaded.
+
+Content warnings are preserved, and if a thread is created from the one mastodon post, it is included in the first tweet.
+
+Self-replying (making a thread) on mastodon results in a thread being properly created on twitter as well.
+
+If you boost a status that was previously crossposted, it gets retweeted on twitter (the full thread gets retweeted, if the mastodon post created a thread).
+
+If you delete a status that was previously crossposted, it gets deleted on twitter as well.
 
 ## Building
 
