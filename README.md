@@ -29,13 +29,12 @@ to get your mastodon token you'll need to:
 
 ## Usage
 
-`./tootapult`
+`./tootapult -c CONFIG`
 
-if you don't pass it any arguments it will try and load `tootapult.config`
+loads file from path pointed to in `CONFIG` and starts the crossposter
 
-passing an argument will cause tootapult to load a file with that name as a config file
+for more information run `./tootapult --help`
 
-`./tootapult fox.config`
 
 ## Building
 
