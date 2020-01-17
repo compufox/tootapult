@@ -26,8 +26,8 @@
   (let ((exit-status 0))
     (multiple-value-bind (opts args) (get-opts)
       
-      (when (or (getf opts :help nil)
-		(every #'null opts args))
+      (when (and (getf opts :help nil)
+		 (every #'null opts args))
 	(unix-opts:describe
 	 :prefix "crossposts mastodon posts to twitter"
 	 :usage-of "tootapult")
