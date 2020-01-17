@@ -4,6 +4,9 @@
 
 (defvar *max-tweet-length* 280)
 (defvar *privacy-values* '("direct" "private" "unlisted" "public"))
+(defvar *crosspostable-file-types*
+  '("jpg" "jpeg" "png" "gif")
+  "filetypes that we can crosspost")
 (defvar *map-filename* "posts.map")
 
 (defvar *mastodon-instance*)
@@ -183,16 +186,19 @@ returns the filename"
 						"."
 						(pathname-type url))
 				   (temporary-directory))))
-    (if (string= (pathname-type url) "mp4")
-	(format t "we dont support crossposting videos yet! sorry ;w;~%")
+    (if (member (pathname-type url) *crosspostable-file-types* :test #'string=)
 	(handler-case
 	    (prog2 
 		(dex:fetch url filename)
 		filename)
 	  (error ()
-	    nil)))))
+	    nil))
+	(format t "we dont support crossposting videos yet! sorry ;w;~%"))))
 
 (defun delete-post (id)
+  "deletes tweets with matching toot ID
+
+removes them from the map list"
   ;; get all of our mapped tweet ids
   (let ((tweet-ids (gather-tweet-ids id)))
     
