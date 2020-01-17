@@ -79,7 +79,8 @@
 
 (defun should-crosspost-p (status)
   "checks if we should crosspost the status"
-  (let ((filtered (filter-present-p (agetf status :content)))
+  (let ((filtered (or (filter-present-p (agetf status :content))
+		      (filter-present-p (agetf status :spoiler--text))))
 	(mentions (agetf status :mentions))
 	(is-reply (agetf status :in--reply--to--id)))
     (and (member (agetf status :visibility) *privacy-level* :test #'string=)
