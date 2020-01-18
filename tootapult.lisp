@@ -48,11 +48,16 @@
     (unless *config-file*
       (format t "ERROR: config file not supplied~%       view help for correct usage")
       (uiop:quit 1))
+
+    (handler-case
+	(progn
+	  (load-config)
+	  (import-id-map))
+      (error (e)
+	(format t "unexpected error occurred: ~a" e)))
     
     (handler-case
 	(with-user-abort
-	  (load-config)
-	  (import-id-map)
 	  (start-crossposter)
 
 	  ;; drop into a loop to keep the main process alive
