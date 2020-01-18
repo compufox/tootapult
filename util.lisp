@@ -134,7 +134,8 @@
 (defun authenticate-twitter ()
   "opens the twitter authentication prompt"
   (open-browser (chirp:initiate-authentication))
-  (chirp:complete-authentication (get-user-input "pin> ")))
+  (chirp:complete-authentication (get-user-input "pin> "
+						 "you can close the tab now")))
   
 
 (defun authenticate-mastodon ()
@@ -142,8 +143,10 @@
   (let ((client (make-mastodon-client)))
     (multiple-value-bind (_ url) (tooter:authorize client)
       (open-browser url))
-    (multiple-value-bind (_ token) (tooter:authorize client
-						     (get-user-input "authentication token> "))
+    (multiple-value-bind (_ token) (tooter:authorize
+				    client
+				    (get-user-input "authentication token> "
+						    "you can close the tab now"))
       token)))
 
 (defun make-mastodon-client ()
@@ -158,16 +161,18 @@
 (defun update-config (key value)
   (when *config-file*
     (with-open-file (out *config-file*
-		     :direction :output 
-		     :if-exists :append)
+			 :direction :output
+			 :if-exists :append)
       (write-string (format nil "~%~a = ~a~%" key value) out))))
     
 
-(defun get-user-input (&optional prompt)
+(defun get-user-input (&optional prompt after)
   "gets input from the user through the command line
 
 if PROMPT is provided, prints prompt out before waiting for user input"
-  (when prompt
-    (princ prompt)
-    (finish-output))
-  (read-line))
+  (prog2
+      (when prompt
+	(princ prompt)
+	(finish-output))
+      (read-line)
+    (when after (format t "~a~%" after))))
