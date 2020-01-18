@@ -143,7 +143,7 @@
   (loop
      for f in *filters*
 
-     when (containsp f status-text)
+     when (containsp f status-text :ignore-case t)
      return t))
 
 (defun sanitize-content (post)
