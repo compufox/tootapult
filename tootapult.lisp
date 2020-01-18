@@ -25,19 +25,23 @@
   "binary entry point"
   (let ((exit-status 0))
     (multiple-value-bind (opts args) (get-opts)
-      
+
+      ;; print out help usage
       (when (and (getf opts :help nil)
 		 (every #'null opts args))
 	(unix-opts:describe
 	 :prefix "crossposts mastodon posts to twitter"
 	 :usage-of "tootapult")
 	(uiop:quit 0))
-      
+
+      ;; print out version info
       (when (getf opts :version nil)
 	(format t "tootapult v~a"
 		(asdf:component-version (asdf:find-system :tootapult)))
 	(uiop:quit 0))
-      
+
+
+      ;; set our config and map file, if provided
       (setf *config-file* (getf opts :config)
 	    *map-filename* (getf opts :map "posts.map")))
 
@@ -50,17 +54,25 @@
 	  (load-config)
 	  (import-id-map)
 	  (start-crossposter)
+
+	  ;; drop into a loop to keep the main process alive
 	  (loop while (eql (ready-state *websocket-client*) :open)
 	     do (sleep 2)))
+
+      ;; if the user quits (ctl+c)
       (user-abort ()
-	(format t "shutting down~%"))
+	(format t "~&shutting down~%"))
+
+      ;; if we hit a major error
       (error (e)
-	(format t "encountered error: ~a" e)
+	(format t "~&encountered error: ~a" e)
 	(setf exit-status 1)))
 
+    ;; ensure we save our mappings if we have any
     (when *id-mappings*
       (export-id-map))
-    
+
+    ;; quit using the proper status code
     (uiop:quit exit-status)))
 
 (defun start-crossposter ()
@@ -87,7 +99,7 @@
   (let ((parsed (decode-json-from-string message)))
     (handler-case (dispatch (agetf parsed :event) (agetf parsed :payload))
       (error (e)
-	(format t "an error occurred: ~a" e)))))
+	(format t "~&an error occurred: ~a" e)))))
 
 (defun print-open ()
   "prints a message when the websocket connection opens"

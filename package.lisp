@@ -21,6 +21,8 @@
 		:blankp
 		:containsp
 		:starts-with-p)
+  (:import-from :trivial-open-browser
+		:open-browser)
   (:import-from :websocket-driver
 		:make-client
 		:ready-state)

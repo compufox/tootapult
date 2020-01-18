@@ -4,12 +4,14 @@
   :description "mastodon->twitter crossposter"
   :author "ava fox"
   :license  "NPLv1+"
-  :version "0.2"
+  :version "0.3"
   :serial t
   :depends-on (#:chirp #:dexador #:cl-json
 	       #:str #:with-user-abort #:plump
 	       #:simple-config #:websocket-driver
-	       #:html-entities #:unix-opts)
+	       #:html-entities #:unix-opts
+	       #:trivial-open-browser
+	       #:tooter)
   :components ((:file "package")
 	       (:file "util")
                (:file "tootapult"))
