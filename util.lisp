@@ -9,6 +9,10 @@
    :description "prints version"
    :short #\v
    :long "version")
+  (:name :log
+   :description "enable logging"
+   :short #\l
+   :long "log")
   (:name :config
    :description "use CONFIG"
    :short #\c

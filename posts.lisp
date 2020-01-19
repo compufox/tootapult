@@ -75,3 +75,53 @@ returns a list of each newline-separated paragraph"
 	    (replace-all (concatenate 'string "@" (first (split #\@ (agetf mtn :acct))))
 			 (agetf mtn :url)
 			 fixed-content)))))
+
+(defun build-post (status)
+  "builds post from status for crossposting
+
+adds CW, if needed
+sanitizes html tags
+replaces mentions, if specified"
+  (let ((cw (agetf status :spoiler--text))
+	(mentions (agetf status :mentions))
+	(content (format nil "~{~A~^~%~}" (sanitize-content (agetf status :content)))))
+
+    (concatenate 'string
+		 (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
+		 (if (and *crosspost-mentions*
+			  mentions)
+		     (replace-all-mentions mentions content)
+		     content))))
+
+(defun get-post-media (media-list)
+  "downloads all media in MEDIA-LIST"
+  (remove-if #'null
+	     (mapcar (lambda (attachment)
+		       (download-media (agetf attachment :url)))
+		     media-list)))
+
+(defun download-media (url)
+  "downloads URL to a generated filename.
+returns the filename"
+  (let ((filename (merge-pathnames (concatenate 'string
+						(symbol-name (gensym "ATTACHMENT-"))
+						"."
+						(pathname-type url))
+				   (temporary-directory))))
+    (if (member (pathname-type url) *crosspostable-file-types* :test #'string=)
+	(handler-case
+	    (progn
+	      (when (log:info)
+		(log:info "downloading" url "to" "filename"))
+  
+	      (dex:fetch url filename)
+	      filename)
+	  (error (e)
+	    (log:error "experienced error" e "downloading" url)
+	    nil))
+	(log:warn "cannot crosspost file of type" (pathname-type url)))))
+
+(defun clean-downloads (files)
+  "deletes all FILES we downloaded to crosspost"
+  (mapcar #'uiop:delete-file-if-exists files)
+  nil)

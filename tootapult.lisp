@@ -2,28 +2,11 @@
 
 (in-package #:tootapult)
 
-(defvar *max-tweet-length* 280)
-(defvar *privacy-values* '("direct" "private" "unlisted" "public"))
-(defvar *crosspostable-file-types*
-  '("jpg" "jpeg" "png" "gif")
-  "filetypes that we can crosspost")
-
-(defvar *map-filename*)
-(defvar *config-file*)
-(defvar *mastodon-instance*)
-(defvar *mastodon-account-id*)
-(defvar *mastodon-token*)
-(defvar *privacy-level*)
-(defvar *crosspost-mentions*)
-(defvar *websocket-client*)
-
-;; these need 'nil' because otherwise they cant be evaluated, period
-(defvar *id-mappings* nil)
-(defvar *filters* nil)
-
 (defun main ()
   "binary entry point"
   (let ((exit-status 0))
+    (log:config :warn)
+    
     (multiple-value-bind (opts args) (get-opts)
 
       ;; print out help usage
@@ -40,13 +23,16 @@
 		(asdf:component-version (asdf:find-system :tootapult)))
 	(uiop:quit 0))
 
+      ;; enables logging info
+      (when (getf opts :log nil)
+	(log:config :info :sane))
 
       ;; set our config and map file, if provided
       (setf *config-file* (getf opts :config)
 	    *map-filename* (getf opts :map "posts.map")))
 
     (unless *config-file*
-      (format t "ERROR: config file not supplied~%       view help for correct usage")
+      (log:error "ERROR: config file not supplied~%       view help for correct usage")
       (uiop:quit 1))
 
     (handler-case
@@ -54,7 +40,7 @@
 	  (load-config)
 	  (import-id-map))
       (error (e)
-	(format t "unexpected error occurred: ~a" e)))
+	(log:error "unexpected error occurred:" e)))
     
     (handler-case
 	(with-user-abort
@@ -66,11 +52,11 @@
 
       ;; if the user quits (ctl+c)
       (user-abort ()
-	(format t "~&shutting down~%"))
+	(log:info "shutting down"))
 
       ;; if we hit a major error
       (error (e)
-	(format t "~&encountered error: ~a" e)
+	(log:error "encountered error:" e)
 	(setf exit-status 1)))
 
     ;; ensure we save our mappings if we have any
@@ -104,16 +90,16 @@
   (let ((parsed (decode-json-from-string message)))
     (handler-case (dispatch (agetf parsed :event) (agetf parsed :payload))
       (error (e)
-	(format t "~&an error occurred: ~a" e)))))
+	(log:error "an error occurred:" e)))))
 
 (defun print-open ()
   "prints a message when the websocket connection opens"
-  (format t "connected!~%"))
+  (log:info "connected!"))
 
 (defun print-close (&key code reason)
   "prints a message when the websocket closes, printing the reason and code"
   (when (and code reason)
-    (format t "connection broken.~%reason: '~a' (code=~a)~%" reason code)))
+    (log:error "connection broken.~%reason: '" reason "' (code=" code ")")))
 
 
 #|
@@ -142,8 +128,12 @@ data: json post object, status id, json notification object
        ;;   and retweet the corresponding tweets
        (if (null (agetf parsed-data :reblog))
 	   (post-to-twitter parsed-data)
-	   (mapcar #'chirp:statuses/retweet (gather-tweet-ids
-					     (agetf (agetf parsed-data :reblog) :id)))))
+	   (progn
+	     (when (log:info)
+	       (let ((id (agetf (agetf parsed-data :reblog) :id)))
+		 (log:info "retweeting status " id)))
+	     (mapcar #'chirp:statuses/retweet (gather-tweet-ids
+					     (agetf (agetf parsed-data :reblog) :id))))))
 
       ;; if its a delete event, and we have the id stored somewhere
       ;;  delete it
@@ -154,11 +144,13 @@ data: json post object, status id, json notification object
       ;; if we dont know what the event is, ignore it :3
       (t nil))))
 
-;;  clean doesnt properly handle newlines, so thats gonna be something
-;;  im probably going to have to do
 (defun post-to-twitter (status)
   ;; this loop macro is bad and i feel bad writing it.
   ;; should be split into PROPER lisp code lol
+  (when (log:info)
+    (let ((id (agetf status :id)))
+      (log:info "crossposting status " id)))
+  
   (loop
      with tweet-length = 0
 
@@ -194,58 +186,15 @@ data: json post object, status id, json notification object
 									  :file media-list)
 							     'chirp::%id))))))))
 
-(defun build-post (status)
-  "builds post from status for crossposting
-
-adds CW, if needed
-sanitizes html tags
-replaces mentions, if specified"
-  (let ((cw (agetf status :spoiler--text))
-	(mentions (agetf status :mentions))
-	(content (format nil "~{~A~^~%~}" (sanitize-content (agetf status :content)))))
-
-    (concatenate 'string
-		 (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
-		 (if (and *crosspost-mentions*
-			  mentions)
-		     (replace-all-mentions mentions content)
-		     content))))
-
-(defun get-post-media (media-list)
-  "downloads all media in MEDIA-LIST"
-  (remove-if #'null
-	     (mapcar (lambda (attachment)
-		       (download-media (agetf attachment :url)))
-		     media-list)))
-
-(defun download-media (url)
-  "downloads URL to a generated filename.
-returns the filename"
-  (let ((filename (merge-pathnames (concatenate 'string
-						(symbol-name (gensym "ATTACHMENT-"))
-						"."
-						(pathname-type url))
-				   (temporary-directory))))
-    (if (member (pathname-type url) *crosspostable-file-types* :test #'string=)
-	(handler-case
-	    (prog2 
-		(dex:fetch url filename)
-		filename)
-	  (error ()
-	    nil))
-	(format t "we dont support crossposting videos yet! sorry ;w;~%"))))
-
-(defun clean-downloads (files)
-  "deletes all FILES we downloaded to crosspost"
-  (mapcar #'uiop:delete-file-if-exists files)
-  nil)
-
 (defun delete-post (id)
   "deletes tweets with matching toot ID
 
 removes them from the map list"
   ;; get all of our mapped tweet ids
   (let ((tweet-ids (gather-tweet-ids id)))
+
+    (when (log:info)
+      (log:info "deleting tweets:" tweet-ids))
     
     ;; delete all of them from twitter
     (mapcar #'chirp:statuses/destroy tweet-ids)

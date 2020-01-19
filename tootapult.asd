@@ -11,7 +11,7 @@
 	       #:simple-config #:websocket-driver
 	       #:html-entities #:unix-opts
 	       #:trivial-open-browser
-	       #:tooter)
+	       #:tooter #:log4cl)
   :components ((:file "package")
 	       (:file "util")
 	       (:file "posts")
