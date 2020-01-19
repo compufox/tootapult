@@ -3,29 +3,24 @@
 
 mastodon to twitter crossposter
 
+## Features
+
+- automatic crossposting from mastodon to twitter
+- long mastodon posts get turned into twitter threads
+- mastodon threads get threaded properly on twitter
+- self-retweets when a self-boost is detected
+- crossposts pictures and (applicable) media
+- configurable privacy levels
+- deleting mastodon post deletes the corresponding tweet
+- content warning is preserved
+
 ## Installation
 
 download binary from release page
 
-copy the example config file and edit it with your tokens.
+copy the example config file and edit it.
 
-to get twitter tokens you'll need to go to https://dev.twitter.com and sign in/up and go through the process there to generate an app.
-
-(this will hopefully be fixed in a later version)
-
-to get your mastodon token you'll need to:
-- go to your instance
-- log in
-- open your settings
-- click 'development' in the sidebar
-- create a new application
-- enter anything for the name, and then check the box next to the read scope
-- scroll down and click create
-- click on the name of the newly created application
-- copy your access token
-- put it in your tootapult config!
-
-(this will hopefully be fixed in a later version)
+at the very least you *need* to set `mastodon-url`
 
 ## Usage
 
@@ -34,26 +29,6 @@ to get your mastodon token you'll need to:
 loads file from path pointed to in `CONFIG` and starts the crossposter
 
 for more information run `./tootapult --help`
-
-## Crossposting Logic
-
-A mastodon post will be crossposted if the following is true:
-- the post is from your account
-- the post is not a reply (unless its a self-reply)
-- the post does not contain any mentions (see example.config)
-- the post/content warning doesn't contain a 'filter' word (see example.config)
-
-Once those checks are made, the status is posted to twitter.
-
-If the mastodon post is too long for twitter (more than 280 characters) it gets split into individual posts and threaded.
-
-Content warnings are preserved, and if a thread is created from the one mastodon post, it is included in the first tweet.
-
-Self-replying (making a thread) on mastodon results in a thread being properly created on twitter as well.
-
-If you boost a status that was previously crossposted, it gets retweeted on twitter (the full thread gets retweeted, if the mastodon post created a thread).
-
-If you delete a status that was previously crossposted, it gets deleted on twitter as well.
 
 ## Building
 
@@ -69,12 +44,8 @@ and run make
 
 unless any errors occur this should generate a binary at `bin/tootapult`
 
-## Todo
-
-- prompt user for mastodon authentication
-- prompt user for twitter authentication
+to properly use this with twitter, you'll need to generate an application at [Twitter's Dev Site](https://dev.twitter.com) and provide the `consumer-secret` and `consumer-key` values in your config
 
 ## License
 
 NPLv1+
-
