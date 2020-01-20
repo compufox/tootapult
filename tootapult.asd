@@ -4,7 +4,7 @@
   :description "mastodon->twitter crossposter"
   :author "ava fox"
   :license  "NPLv1+"
-  :version "0.3"
+  :version "0.4"
   :serial t
   :depends-on (#:chirp #:dexador #:cl-json
 	       #:str #:with-user-abort #:plump
