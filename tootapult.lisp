@@ -91,13 +91,35 @@
 	do (sleep 2)))
 
 (defun start-rest-polling ()
-  ;; do i want to use tooter here?
-  ;;  it would require saving the client secret/id
-  ;;  and im not sure i wanna?
-  ;; can also just, manually poll the endpoint.
-  ;;  but at this point that may be more work than its worth
-  ;; *big shrug*
-  )
+  (loop
+    
+    ;; get our starting id (most recent post made by account)
+    with starting-id = (mastodon-request (concatenate 'string "accounts/" *mastodon-account-id* "/statuses") t)
+
+    ;; wait the configured amount of time
+    do (sleep (conf:config :polling-frequency 500))
+
+       ;; then get the most recent posts and loop through them
+       (loop
+	 for p in (mastodon-request (concatenate 'string "accounts/" *mastodon-account-id* "/statuses") t
+				    `("min_id" ,starting-id))
+	 do (when (and (equal (agetf (agetf p :account) :id) *mastodon-account-id*)
+		       (should-crosspost-p p))
+
+	      ;; if the status id is greater that our starting one we save it
+	      (when (> (parse-integer (agetf p :id))
+		       (parse-integer starting-id))
+		(setf starting-id (agetf p :id)))
+	      
+	      ;; if the post doesnt have a reblog
+	      ;;   crosspost the status
+	      ;; otherwise
+	      ;;   see if we have any stored posts with the reblog's id
+	      ;;   and retweet the corresponding tweets
+	      (if (null (agetf p :reblog))
+		  (post-to-twitter p)
+		  (retweet-post (agetf (agetf p :reblog) :id)))))
+       (scan-and-delete)))
 
 (defun process-message (message)
   "processes our incoming websocket message"
