@@ -44,11 +44,7 @@
     
     (handler-case
 	(with-user-abort
-	  (start-crossposter)
-
-	  ;; drop into a loop to keep the main process alive
-	  (loop while (eql (ready-state *websocket-client*) :open)
-	     do (sleep 2)))
+	  (start-crossposter))
 
       ;; if the user quits (ctl+c)
       (user-abort ()
@@ -71,19 +67,37 @@
   (unless (chirp:account/verify-credentials)
     (error "incorrect twitter credentials"))
 
+  (if (equal (conf:config :polling-method) "streaming")
+      (start-streaming-polling)
+      (start-rest-polling)))
+
+(defun start-streaming-polling ()
   (setf *websocket-client*
 	(make-client (format nil "~a/api/v1/streaming?access_token=~a&stream=user"
 			     (get-mastodon-streaming-url)
 			     *mastodon-token*)))
 
-    (wsd:on :open *websocket-client*
-	    #'print-open)
-    (wsd:on :message *websocket-client*
-	    #'process-message)
-    (wsd:on :close *websocket-client*
-	    #'print-close)
+  (wsd:on :open *websocket-client*
+	  #'print-open)
+  (wsd:on :message *websocket-client*
+	  #'process-message)
+  (wsd:on :close *websocket-client*
+	  #'print-close)
 
-    (wsd:start-connection *websocket-client*))
+  (wsd:start-connection *websocket-client*)
+
+  ;; drop into a loop
+  (loop while (eql (ready-state *websocket-client*) :open)
+	do (sleep 2)))
+
+(defun start-rest-polling ()
+  ;; do i want to use tooter here?
+  ;;  it would require saving the client secret/id
+  ;;  and im not sure i wanna?
+  ;; can also just, manually poll the endpoint.
+  ;;  but at this point that may be more work than its worth
+  ;; *big shrug*
+  )
 
 (defun process-message (message)
   "processes our incoming websocket message"
