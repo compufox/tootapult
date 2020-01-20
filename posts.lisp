@@ -126,6 +126,11 @@ returns the filename"
   (mapcar #'uiop:delete-file-if-exists files)
   nil)
 
+(defun scan-and-delete ()
+  "scans through all toot ids and deletes their tweets if the toot is not self faved"
+  (dolist (status (remove-if #'self-faved-p *id-mappings* :key #'car))
+    (delete-post (car status))))
+
 (defun self-faved-p (status)
   "checks to see if STATUS has been favourited by our authenticated mastodon account"
   (let ((faves
