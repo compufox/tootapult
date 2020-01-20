@@ -104,7 +104,10 @@
 	 for p in (mastodon-request (concatenate 'string "accounts/" *mastodon-account-id* "/statuses") t
 				    `("min_id" ,starting-id))
 	 do (when (and (equal (agetf (agetf p :account) :id) *mastodon-account-id*)
-		       (should-crosspost-p p))
+		       (should-crosspost-p p)
+		       (if (conf:config :crosspost-self-faves)
+			   (self-faved-p p)
+			   t))
 
 	      ;; if the status id is greater that our starting one we save it
 	      (when (> (parse-integer (agetf p :id))
