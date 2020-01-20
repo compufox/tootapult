@@ -133,20 +133,7 @@ returns the filename"
 
 (defun self-faved-p (status)
   "checks to see if STATUS has been favourited by our authenticated mastodon account"
-  (let ((faves
-	  (handler-case
-	      (decode-json-from-string
-	       (dex:get (format nil
-				"https://~a/api/v1/statuses/~a/favourited_by"
-				*mastodon-instance*
-				(agetf status :id))
-		       :headers
-		       `("Authorization" . ,(concatenate 'string
-							 "Bearer"
-							 (conf:config :mastodon-token)))))
-	    (error (e)
-	      (log:error "encountered error" e "when retrieving favourites for status" (agetf status :id))
-	      nil))))
+  (let ((faves (mastodon-request (concatenate 'string "statuses/" (agetf status :id) "/favourited_by") t)))
     (loop
       for f in faves
       if (equal (agetf f :id) *mastodon-account-id*)

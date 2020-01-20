@@ -142,12 +142,7 @@ data: json post object, status id, json notification object
        ;;   and retweet the corresponding tweets
        (if (null (agetf parsed-data :reblog))
 	   (post-to-twitter parsed-data)
-	   (progn
-	     (when (log:info)
-	       (let ((id (agetf (agetf parsed-data :reblog) :id)))
-		 (log:info "retweeting status " id)))
-	     (mapcar #'chirp:statuses/retweet (gather-tweet-ids
-					     (agetf (agetf parsed-data :reblog) :id))))))
+	   (retweet-post (agetf (agetf parsed-data :reblog) :id))))
 
       ;; if its a delete event, and we have the id stored somewhere
       ;;  delete it
@@ -215,3 +210,8 @@ removes them from the map list"
 
     ;; and them remove them from our mappings
     (setf *id-mappings* (remove id *id-mappings* :test #'equal :key #'car))))
+
+(defun retweet-post (id)
+  (when (log:info)
+    (log:info "retweeting status " id))
+  (mapcar #'chirp:statuses/retweet (gather-tweet-ids id)))

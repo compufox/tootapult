@@ -180,3 +180,23 @@ if PROMPT is provided, prints prompt out before waiting for user input"
 	(finish-output))
       (read-line)
     (when after (format t "~a~%" after))))
+
+(defun mastodon-request (fragment endpoint &rest parameters)
+  (when endpoint
+    (setf fragment (concatenate 'string "api/v1/" fragment)))
+
+  (let ((url (format nil "https://~a/~a~a"
+		     *mastodon-instance*
+		     fragment
+		     (if parameters
+			 (format nil "?~{~{~a=~a~}~^&~}" parameters)
+			 ""))))
+    (handler-case
+	(decode-json-from-string
+	 (dex:get url
+		  :headers `(("Authorization" . ,(concatenate 'string
+							      "Bearer "
+							      *mastodon-token*)))))
+      (error (e)
+	(log:error "error (" e ") fetching" url)
+	nil))))
