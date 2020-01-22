@@ -112,7 +112,7 @@ returns the filename"
 	(handler-case
 	    (progn
 	      (when (log:info)
-		(log:info "downloading" url "to" "filename"))
+		(log:info "downloading" url "to" filename))
   
 	      (dex:fetch url filename)
 	      filename)
