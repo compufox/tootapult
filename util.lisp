@@ -37,7 +37,8 @@
 
 	  *privacy-level* (member (conf:config :privacy-level '("public")) *privacy-values*
 				  :test #'string=)
-	  *filters* (mapcar #'str:trim (conf:config :filters))
+	  *filters* (list (cons :status (mapcar #'str:trim (conf:config :status-filters)))
+			  (cons :cw (mapcar #'str:trim (conf:config :cw-filters))))
 	  *crosspost-mentions* (conf:config :crosspost-mentioned))
 
     ;; for the official builds we'll provide these tokens, so we

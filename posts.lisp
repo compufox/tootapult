@@ -34,8 +34,7 @@
 
 (defun should-crosspost-p (status)
   "checks if we should crosspost the status"
-  (let ((filtered (or (filter-present-p (agetf status :content))
-		      (filter-present-p (agetf status :spoiler--text))))
+  (let ((filtered (filter-present-p status))
 	(mentions (agetf status :mentions))
 	(is-reply (agetf status :in--reply--to--id)))
     (and (member (agetf status :visibility) *privacy-level* :test #'string=)
@@ -44,19 +43,23 @@
 	 (or (not is-reply)
 	     (self-reply-p status)))))
 
-(defun filter-present-p (status-text)
+(defun filter-present-p (status)
   "checks if any filter words appear in STATUS-TEXT"
-  (loop
-     for f in *filters*
-
-     when (containsp f status-text :ignore-case t)
-     return t))
+  (or (loop with status-text = (agetf status :content)
+	    for f in (agetf *filters* :status)
+	    when (str:containsp f status-text)
+	      return t)
+      (loop with status-cw = (agetf status :spoiler--text)
+	    for f in (agetf *filters* :cw)
+	    when (str:containsp f status-cw)
+	      return t)))
 
 (defun sanitize-content (post)
   "removes all html tags from POST
 
 returns a list of each newline-separated paragraph"
-  (remove-if #'blankp
+  (tooter:plain-format-html (html-entities:decode-entities post)))
+#|  (remove-if #'blankp
 	     (flatten
 	      (loop
 		 with content
@@ -66,6 +69,7 @@ returns a list of each newline-separated paragraph"
 			   collect (plump:text c1))
 			  content)
 		 finally (return (reverse content))))))
+|#
 
 (defun replace-all-mentions (mentions content)
   "replaces all @mentions in CONTENT with URL to account"
