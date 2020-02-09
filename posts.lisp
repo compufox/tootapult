@@ -88,7 +88,7 @@ sanitizes html tags
 replaces mentions, if specified"
   (let ((cw (agetf status :spoiler--text))
 	(mentions (agetf status :mentions))
-	(content (format nil "~A" (sanitize-content (agetf status :content)))))
+	(content (format nil "~{~A~^~%~}" (sanitize-content (agetf status :content)))))
 
     (concatenate 'string
 		 (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
