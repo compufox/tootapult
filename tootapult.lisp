@@ -67,7 +67,7 @@
   (unless (chirp:account/verify-credentials)
     (error "incorrect twitter credentials"))
 
-  (if (equal (conf:config :polling-method) "streaming")
+  (if (equal (conf:config :polling-method "streaming") "streaming")
       (start-streaming-polling)
       (start-rest-polling)))
 
