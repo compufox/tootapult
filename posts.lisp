@@ -58,8 +58,8 @@
   "removes all html tags from POST
 
 returns a list of each newline-separated paragraph"
-  (tooter:plain-format-html (html-entities:decode-entities post)))
-#|  (remove-if #'blankp
+;  (tooter:plain-format-html (html-entities:decode-entities post)))
+  (remove-if #'blankp
 	     (flatten
 	      (loop
 		 with content
@@ -69,7 +69,7 @@ returns a list of each newline-separated paragraph"
 			   collect (plump:text c1))
 			  content)
 		 finally (return (reverse content))))))
-|#
+
 
 (defun replace-all-mentions (mentions content)
   "replaces all @mentions in CONTENT with URL to account"
