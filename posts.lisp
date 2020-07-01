@@ -57,18 +57,14 @@
 (defun sanitize-content (post)
   "removes all html tags from POST
 
-returns a list of each newline-separated paragraph"
-;  (tooter:plain-format-html (html-entities:decode-entities post)))
-  (remove-if #'blankp
-	     (flatten
-	      (loop
-		 with content
-		 for c across (plump:children (plump:parse (html-entities:decode-entities post)))
-		 do (push (loop
-			   for c1 across (plump:children c)
-			   collect (plump:text c1))
-			  content)
-		 finally (return (reverse content))))))
+returns a properly sanitized string"
+  (str:trim
+   (ppcre:regex-replace-all "  "
+			    (ppcre:regex-replace-all "<[^>]*>"
+						     (str:replace-all "<br>" (string #\Newline)
+								      (html-entities:decode-entities post))
+						     " ")
+			    (format nil "~%~%"))))
 
 
 (defun replace-all-mentions (mentions content)
@@ -88,7 +84,7 @@ sanitizes html tags
 replaces mentions, if specified"
   (let ((cw (agetf status :spoiler--text))
 	(mentions (agetf status :mentions))
-	(content (format nil "~{~A~^~%~}" (sanitize-content (agetf status :content)))))
+	(content (sanitize-content (agetf status :content))))
 
     (concatenate 'string
 		 (unless (blankp cw) (format nil "cw: ~A~%~%" cw))
