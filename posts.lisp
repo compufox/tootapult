@@ -61,8 +61,9 @@ returns a properly sanitized string"
   (str:trim
    (ppcre:regex-replace-all "  "
 			    (ppcre:regex-replace-all "<[^>]*>"
-						     (str:replace-all "<br>" (string #\Newline)
-								      (html-entities:decode-entities post))
+						     (ppcre:regex-replace-all "<br( /)?>"
+                                                                              (html-entities:decode-entities post)
+                                                                              (string #\Newline))
 						     " ")
 			    (format nil "~%~%"))))
 
