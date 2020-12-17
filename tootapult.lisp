@@ -82,7 +82,7 @@
   (wsd:on :message *websocket-client*
 	  #'process-message)
   (wsd:on :close *websocket-client*
-	  #'print-close)
+	  #'restart-websocket)
 
   (wsd:start-connection *websocket-client*)
 
@@ -135,11 +135,14 @@
   "prints a message when the websocket connection opens"
   (log:info "connected!"))
 
-(defun print-close (&key code reason)
+(defun restart-websocket (&key code reason)
   "prints a message when the websocket closes, printing the reason and code"
-  (when (and code reason)
-    (log:error "connection broken.~%reason: '" reason "' (code=" code ")")))
-
+  (format t "restarting websocket~&")
+  (setf *websocket-client*
+        (restart-connection *websocket-connection*
+                            :on-open #'print-open
+                            :on-close #'restart-websocket
+                            :on-message #'dispatch)))
 
 #|
 
